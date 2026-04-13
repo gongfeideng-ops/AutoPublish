@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "run_at": "2026-04-13T08:00:00Z",
+  "enabled": true,
+  "run_at": "2026-04-13T08:20:00Z",
   "source": "dev",
   "target": "main"
 }
