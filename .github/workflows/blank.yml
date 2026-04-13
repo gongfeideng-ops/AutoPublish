@@ -1,0 +1,79 @@
+name: One-time Scheduled Merge
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # 每5分钟检查一次
+  workflow_dispatch:
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load job config
+        id: job
+        run: |
+          echo "Checking schedule..."
+
+          JOB_FILE=".github/schedule/katie.json"
+
+          if [ ! -f "$JOB_FILE" ]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          ENABLED=$(jq -r '.enabled' $JOB_FILE)
+          RUN_AT=$(jq -r '.run_at' $JOB_FILE)
+          SOURCE=$(jq -r '.source' $JOB_FILE)
+          TARGET=$(jq -r '.target' $JOB_FILE)
+
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "enabled=$ENABLED" >> $GITHUB_OUTPUT
+          echo "run_at=$RUN_AT" >> $GITHUB_OUTPUT
+          echo "source=$SOURCE" >> $GITHUB_OUTPUT
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          echo "now=$NOW" >> $GITHUB_OUTPUT
+
+      - name: Check if should run
+        id: check
+        run: |
+          if [ "${{ steps.job.outputs.enabled }}" != "true" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [[ "${{ steps.job.outputs.now }}" < "${{ steps.job.outputs.run_at }}" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge branch
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@bot.com"
+
+          git checkout ${{ steps.job.outputs.target }}
+          git pull origin ${{ steps.job.outputs.target }}
+
+          git merge origin/${{ steps.job.outputs.source }}
+
+          git push origin ${{ steps.job.outputs.target }}
+
+      - name: Disable job (run once)
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          JOB_FILE=".github/schedule/katie.json"
+
+          jq '.enabled=false' $JOB_FILE > tmp.json && mv tmp.json $JOB_FILE
+
+          git add $JOB_FILE
+          git commit -m "mark scheduled job as done"
+          git push
