@@ -20,7 +20,7 @@ jobs:
         run: |
           echo "Checking schedule..."
 
-          JOB_FILE=".github/schedule/katie.json"
+          JOB_FILE=".github/schedule/auto.json"
 
           if [ ! -f "$JOB_FILE" ]; then
             echo "enabled=false" >> $GITHUB_OUTPUT
@@ -70,7 +70,7 @@ jobs:
       - name: Disable job (run once)
         if: steps.check.outputs.skip == 'false'
         run: |
-          JOB_FILE=".github/schedule/katie.json"
+          JOB_FILE=".github/schedule/auto.json"
 
           jq '.enabled=false' $JOB_FILE > tmp.json && mv tmp.json $JOB_FILE
 
